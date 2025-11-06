@@ -4,7 +4,7 @@ name: Build and deploy ASP.NET Core app
 on:
   push:
     branches:
-      - main        # ← skift til 'master' hvis det er jeres branch
+      - master        # ← skift til 'master' hvis det er jeres branch
   workflow_dispatch:
 
 jobs:
