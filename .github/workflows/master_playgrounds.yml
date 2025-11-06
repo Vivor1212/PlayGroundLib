@@ -1,54 +1,61 @@
-# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
-# More GitHub Actions for Azure: https://github.com/Azure/actions
-
-name: Build and deploy ASP.Net Core app to Azure Web App - PlayGrounds
+# Build and deploy ASP.NET Core app to Azure Web App - PlayGrounds
+name: Build and deploy ASP.NET Core app
 
 on:
   push:
     branches:
-      - master
+      - main        # ← skift til 'master' hvis det er jeres branch
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: windows-latest
     permissions:
-      contents: read #This is required for actions/checkout
+      contents: read
+
+    env:
+      PROJECT_PATH: PlayGroundController/PlayGroundController.csproj   # ← din web .csproj
+      DOTNET_VERSION: 9.0.x
+      PUBLISH_DIR: ${{ github.workspace }}\published
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up .NET Core
+      - name: Set up .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '9.x'
+          dotnet-version: ${{ env.DOTNET_VERSION }}
 
-      - name: Build with dotnet
-        run: dotnet build --configuration Release
+      - name: Restore
+        run: dotnet restore "$env:PROJECT_PATH"
 
-      - name: dotnet publish
-        run: dotnet publish -c Release -o "${{env.DOTNET_ROOT}}/myapp"
+      - name: Build (Release)
+        run: dotnet build "$env:PROJECT_PATH" --configuration Release --no-restore
 
-      - name: Upload artifact for deployment job
+      - name: Publish
+        run: dotnet publish "$env:PROJECT_PATH" -c Release -o "$env:PUBLISH_DIR" /p:UseAppHost=false
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: .net-app
-          path: ${{env.DOTNET_ROOT}}/myapp
+          name: webapp
+          path: ${{ env.PUBLISH_DIR }}
 
   deploy:
     runs-on: windows-latest
     needs: build
     permissions:
-      id-token: write #This is required for requesting the JWT
-      contents: read #This is required for actions/checkout
+      id-token: write
+      contents: read
 
     steps:
-      - name: Download artifact from build job
+      - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: .net-app
-      
-      - name: Login to Azure
+          name: webapp
+          path: webapp
+
+      - name: Azure login (OIDC)
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_3E12584B09634467A10F466D772980F9 }}
@@ -56,10 +63,8 @@ jobs:
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_5AABF690829947BF8099E388D79B28B1 }}
 
       - name: Deploy to Azure Web App
-        id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'PlayGrounds'
-          slot-name: 'Production'
-          package: .
-          
+          app-name: PlayGrounds
+          package: webapp                # ← deployér de publicerede filer
+          # slot-name: Production        # valgfrit; standard er Production
